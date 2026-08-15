@@ -1,11 +1,18 @@
 from fastapi import FastAPI
-from app.routers import ticket_router
 
-app = FastAPI(title="AI Ticket Workflow Platform API")
+from app.routers.ticket_router import router as ticket_router
 
-app.include_router(ticket_router.router)
+app = FastAPI(
+    title="AI Ticket Workflow Platform",
+    description="A backend platform for client issue triage and workflow automation.",
+    version="0.1.0",
+)
+
+app.include_router(ticket_router)
 
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to AI Ticket Workflow Platform API"}
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok"
+    }
