@@ -7,10 +7,13 @@ from app.models.ticket_models import TicketResponse, TicketStatus
 
 
 class TicketRepository:
-    def __init__(self):
-        # 建立 DynamoDB 资源连接
-        dynamodb = boto3.resource("dynamodb", region_name="us-west-2")
-        self.table = dynamodb.Table("Tickets")
+    def __init__(self, table=None):
+        if table is not None:
+            self.table = table
+        else:
+            # 建立 DynamoDB 资源连接
+            dynamodb = boto3.resource("dynamodb", region_name="us-west-2")
+            self.table = dynamodb.Table("Tickets")
 
     def save(self, ticket: TicketResponse) -> TicketResponse:
         # 将工单写入 DynamoDB 表

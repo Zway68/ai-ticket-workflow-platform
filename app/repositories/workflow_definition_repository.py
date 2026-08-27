@@ -14,10 +14,13 @@ class WorkflowDefinitionRepository:
     负责直接与 AWS DynamoDB 交互，处理 WorkflowDefinitions 表的 CRUD 操作。
     """
 
-    def __init__(self):
-        # 建立 DynamoDB 资源连接并绑定目标表
-        dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-        self.table = dynamodb.Table(WORKFLOW_DEFINITIONS_TABLE_NAME)
+    def __init__(self, table=None):
+        if table is not None:
+            self.table = table
+        else:
+            # 建立 DynamoDB 资源连接并绑定目标表
+            dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+            self.table = dynamodb.Table(WORKFLOW_DEFINITIONS_TABLE_NAME)
 
     def save(
         self,

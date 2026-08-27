@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from app.models.workflow_definition_models import (
     CreateWorkflowDefinitionRequest,
@@ -17,9 +17,11 @@ class WorkflowDefinitionService:
     校验/转换请求模型，并将持久化操作交由 WorkflowDefinitionRepository 执行。
     """
 
-    def __init__(self):
-        # 依赖注入：初始化 WorkflowDefinitionRepository 实例，用于与 DynamoDB 数据库通信
-        self.workflow_definition_repository = WorkflowDefinitionRepository()
+    def __init__(self, repository: Any = None):
+        """依赖注入：支持从外部传入 repository 实例（如单元测试时的 Mock 对象或不同的 DB 仓储）。
+        如果不传，则默认初始化标准的 WorkflowDefinitionRepository 实例。
+        """
+        self.workflow_definition_repository = repository or WorkflowDefinitionRepository()
 
     def create_workflow_definition(
         self,

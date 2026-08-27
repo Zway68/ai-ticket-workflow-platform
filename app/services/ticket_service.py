@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import uuid4
 
 from app.models.ticket_models import (
@@ -11,8 +11,8 @@ from app.repositories.ticket_repository import TicketRepository
 
 
 class TicketService:
-    def __init__(self):
-        self.ticket_repository = TicketRepository()
+    def __init__(self, repository: Any = None):
+        self.ticket_repository = repository or TicketRepository()
 
     def create_ticket(self, request: CreateTicketRequest) -> TicketResponse:
         now = self._current_time_iso()
