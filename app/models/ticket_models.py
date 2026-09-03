@@ -1,3 +1,4 @@
+from typing import List
 from typing import Dict
 from enum import Enum
 from typing import Optional
@@ -54,5 +55,5 @@ class TicketResponse(BaseModel):
     extracted_fields: Dict[str, str] = {}
     # 缺失的字段
     missing_fields: List[str] = []
-    #
+    # 针对缺失字段的追问问题
     missing_field_questions: List[str] = []

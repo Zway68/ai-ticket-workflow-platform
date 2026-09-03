@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.routers.ticket_router import router as ticket_router
 from app.routers.workflow_definition_router import router as workflow_definition_router
 from app.routers.workflow_selector_router import router as workflow_selector_router
+from app.routers.workflow_run_router import router as workflow_run_router
 
 # 初始化 FastAPI 应用主入口，设置 Swagger 文档的标题与描述
 app = FastAPI(
@@ -19,6 +20,9 @@ app.include_router(workflow_definition_router)
 
 # 挂载工作流选择器路由模块 (Workflow Selector Router)
 app.include_router(workflow_selector_router)
+
+# 挂载工作流运行路由模块 (Workflow Run Router)
+app.include_router(workflow_run_router)
 
 @app.get("/health")
 def health_check():
