@@ -403,5 +403,5 @@ Return the workflow selection result as JSON.
         return None
 
 
-# 模块级单例实例，供路由层直接导入使用
+# 导出的单例服务
 llm_workflow_selector_service = LLMWorkflowSelectorService()

@@ -17,6 +17,7 @@ app.include_router(ticket_router)
 # 挂载工作流定义路由模块 (Workflow Definition Router)
 app.include_router(workflow_definition_router)
 
+# 挂载工作流选择器路由模块 (Workflow Selector Router)
 app.include_router(workflow_selector_router)
 
 @app.get("/health")
