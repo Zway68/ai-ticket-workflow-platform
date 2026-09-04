@@ -47,7 +47,7 @@ class TicketService:
         )
         # 分支 A（缺少字段）：调用 mark_waiting_for_input，
         # 返回待补充状态的 Ticket；
-        if not selection.is_ready_for_workflow:
+        if not selection.is_ready_for_workflow or not selection.selected_workflow_id or not selection.selected_workflow_type:
             waiting_ticket = self.ticket_repository.mark_waiting_for_input(
                 ticket_id=saved_ticket.ticket_id,
                 selected_workflow_id=selection.selected_workflow_id,
