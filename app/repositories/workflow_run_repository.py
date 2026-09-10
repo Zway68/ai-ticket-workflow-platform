@@ -25,7 +25,9 @@ class WorkflowRunRepository:
             return None
 
         return self._item_to_workflow_run(item)
-
+    
+    # 供 Worker 消费，更新状态。
+    # 这里只做单表更新
     def update_status(
         self,
         workflow_run_id: str,
@@ -60,7 +62,7 @@ class WorkflowRunRepository:
             if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
                 return None
             raise
-
+    #工具方法：将对象转为 DynamoDB Item
     def _workflow_run_to_item(self, workflow_run: WorkflowRunResponse) -> dict:
         item = {
             "workflow_run_id": workflow_run.workflow_run_id,
@@ -71,13 +73,14 @@ class WorkflowRunRepository:
             "workflow_input": workflow_run.workflow_input,
             "created_at": workflow_run.created_at,
             "updated_at": workflow_run.updated_at,
+            "result": workflow_run.result
         }
 
         if workflow_run.error_message is not None:
             item["error_message"] = workflow_run.error_message
 
         return item
-
+    #工具方法：将 DynamoDB Item 转为对象
     def _item_to_workflow_run(self, item: dict) -> WorkflowRunResponse:
         return WorkflowRunResponse(
             workflow_run_id=item["workflow_run_id"],
@@ -89,4 +92,5 @@ class WorkflowRunRepository:
             created_at=item["created_at"],
             updated_at=item["updated_at"],
             error_message=item.get("error_message"),
+            result=item.get("result", {})
         )

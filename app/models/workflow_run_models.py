@@ -29,4 +29,7 @@ class WorkflowRunResponse(BaseModel):
     # 创建时间
     created_at: str
     updated_at: str
+    # 记录工作流执行的输出结果
+    result: Dict[str, str] = {}
+    # 记录错误信息
     error_message: Optional[str] = None

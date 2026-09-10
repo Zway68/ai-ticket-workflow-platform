@@ -4,6 +4,7 @@ from boto3.dynamodb.types import TypeSerializer
 from app.config import AWS_REGION, TICKETS_TABLE_NAME, WORKFLOW_RUNS_TABLE_NAME
 from app.models.ticket_models import TicketStatus
 from app.models.workflow_run_models import WorkflowRunResponse, WorkflowRunStatus
+from botocore.exceptions import ClientError
 
 #保证双表状态的一致性（Atomic All-or-Nothing）。
 # 避免出现“WorkflowRun 写入成功但 Ticket 未能绑定”
@@ -74,6 +75,108 @@ class WorkflowTransactionRepository:
                 },
             ]
         )
+    #原子抢占任务
+    #同一个任务可能被两个 Worker 同时拉到。
+    #通过 ConditionExpression = "#status = :queued" 确保只有一个 Worker 能成功修改状态。
+    # 返回 True 表示成功抢占，可以开始执行；False 表示已被抢占（竞态失败）。
+    def mark_workflow_running_if_queued(
+        self,
+        ticket_id: str,
+        workflow_run_id: str,
+        updated_at: str,
+    ) -> bool:
+        try:
+            self.client.transact_write_items(
+                TransactItems=[
+                    {
+                        "Update": {
+                            "TableName": WORKFLOW_RUNS_TABLE_NAME,
+                            "Key": self._serialize_item({"workflow_run_id": workflow_run_id}),
+                            "UpdateExpression": "SET #status = :running, updated_at = :updated_at",
+                            # 核心条件检查：只有当前状态是 QUEUED 才允许更新
+                            "ConditionExpression": "#status = :queued",
+                            "ExpressionAttributeNames": {"#status": "status"},
+                            "ExpressionAttributeValues": self._serialize_item(
+                                {
+                                    ":running": WorkflowRunStatus.RUNNING.value,
+                                    ":queued": WorkflowRunStatus.QUEUED.value,
+                                    ":updated_at": updated_at,
+                                }
+                            ),
+                        }
+                    },
+                    {
+                        "Update": {
+                            "TableName": TICKETS_TABLE_NAME,
+                            "Key": self._serialize_item({"ticket_id": ticket_id}),
+                            "UpdateExpression": "SET #status = :status, updated_at = :updated_at",
+                            # 确保该 Ticket 确实存在
+                            "ConditionExpression": "attribute_exists(ticket_id)",
+                            "ExpressionAttributeNames": {"#status": "status"},
+                            "ExpressionAttributeValues": self._serialize_item(
+                                {
+                                    ":status": TicketStatus.WORKFLOW_RUNNING.value,
+                                    ":updated_at": updated_at,
+                                }
+                            ),
+                        }
+                    },
+                ]
+            )
+            return True
+        except ClientError as error:
+            #如果条件不满足（已被抢占），DynamoDB 会抛出 TransactionCanceledException
+            if error.response["Error"]["Code"] == "TransactionCanceledException":
+                return False
+            raise
+    
+    #工作流成功结束双表联动
+    #使用 ConditionExpression 确保只有 RUNNING 的 Workflow 才允许结束(防止重复操作)
+    def mark_workflow_completed(
+        self,
+        ticket_id: str,
+        workflow_run_id: str,
+        result: dict,
+        updated_at: str,
+    ) -> None:
+        self.client.transact_write_items(
+            TransactItems=[
+                {
+                    "Update": {
+                        "TableName": WORKFLOW_RUNS_TABLE_NAME,
+                        "Key": self._serialize_item({"workflow_run_id": workflow_run_id}),
+                        "UpdateExpression": (
+                            "SET #status = :status, #result = :result, updated_at = :updated_at"
+                        ),
+                        "ConditionExpression": "attribute_exists(workflow_run_id)",
+                        "ExpressionAttributeNames": {"#status": "status", "#result": "result"},
+                        "ExpressionAttributeValues": self._serialize_item(
+                            {
+                                ":status": WorkflowRunStatus.COMPLETED.value,
+                                ":result": result,
+                                ":updated_at": updated_at,
+                            }
+                        ),
+                    }
+                },
+                {
+                    "Update": {
+                        "TableName": TICKETS_TABLE_NAME,
+                        "Key": self._serialize_item({"ticket_id": ticket_id}),
+                        "UpdateExpression": "SET #status = :status, updated_at = :updated_at",
+                        "ConditionExpression": "attribute_exists(ticket_id)",
+                        "ExpressionAttributeNames": {"#status": "status"},
+                        "ExpressionAttributeValues": self._serialize_item(
+                            {
+                                ":status": TicketStatus.RESOLVED.value,
+                                ":updated_at": updated_at,
+                            }
+                        ),
+                    }
+                },
+            ]
+        )
+    
 #在一个原子事务内，同时将 WorkflowRuns.status 更新为 QUEUED，
 #并将 Ticket.status 更新为 WORKFLOW_QUEUED
     def mark_workflow_queued(
@@ -167,3 +270,5 @@ class WorkflowTransactionRepository:
 # 辅助方法，将字典序列化为 DynamoDB 格式
     def _serialize_item(self, item: dict) -> dict:
         return {key: self.serializer.serialize(value) for key, value in item.items()}
+
+
